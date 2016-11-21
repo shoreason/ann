@@ -1,5 +1,6 @@
 import pandas as pd
 from collections import Counter
+import random 
 
 PAD_INDEX = 0
 UNKNOWN_INDEX = 1
@@ -40,7 +41,7 @@ print(lookup_table["the"])
 def lookup_word(word):
     if word in lookup_table:
         return lookup_table[word]
-    else
+    else:
         return UNKNOWN_INDEX
     # return lookup_table[word] if word in lookup_table else UNKNOWN_INDEX
 
@@ -51,3 +52,32 @@ for sentence in sentences:
     sentence_input.append(numeric_words)
 
 print(sentence_input[0:2])
+
+# Build the neural network itself.
+
+hidden_layer_size = 800
+hidden_weights = []
+hidden_biases = []
+
+for i in range(0,hidden_layer_size):
+    hidden_weights_row = []
+    hidden_biases.append(random.random())
+    for j in range(0, sentence_max):
+        hidden_weights_row.append(random.random())
+    hidden_weights.append(hidden_weights_row)
+
+print(hidden_weights[0:2])
+
+# Naming our first hidden layer nodes h1
+# Note to future team : Fast Eric made us do this
+h1 = []
+for i in range(0, hidden_layer_size):
+    weightedSum = 0
+    for j in range(0, sentence_max):
+        weightedSum += (hidden_weights[i][j]*sentence_input[0][j])
+    weightedSum += hidden_biases[i]
+    h1.append(weightedSum)
+
+# TODO: Add activation function; add output layer; then training.  Possibly add another hidden layer (h2!)
+
+print(h1[0:2])
