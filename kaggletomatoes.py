@@ -1,6 +1,7 @@
 import pandas as pd
 from collections import Counter
-import random 
+import random
+import math
 
 PAD_INDEX = 0
 UNKNOWN_INDEX = 1
@@ -55,29 +56,50 @@ print(sentence_input[0:2])
 
 # Build the neural network itself.
 
-hidden_layer_size = 800
-hidden_weights = []
-hidden_biases = []
+def generate_layer(input_size, output_size):
+    weights = []
+    biases = []
+    for i in range(0,output_size):
+        weights_row = []
+        biases.append(random.random() * 2 - 1)
+        for j in range(0, input_size):
+            weights_row.append(random.random() * 2 - 1)
+        weights.append(weights_row)
 
-for i in range(0,hidden_layer_size):
-    hidden_weights_row = []
-    hidden_biases.append(random.random())
-    for j in range(0, sentence_max):
-        hidden_weights_row.append(random.random())
-    hidden_weights.append(hidden_weights_row)
+    return weights, biases
+
+def evaluate_layer(weights, biases, inputs):
+    layer = []
+    for i in range(0, len(biases)):
+        weightedSum = 0
+        for j in range(0, len(inputs)):
+            weightedSum += (weights[i][j]*inputs[j])
+        weightedSum += biases[i]
+        layer.append(math.tanh(weightedSum))
+
+    return layer
+
+hidden_layer_size = 800
+hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
 
 print(hidden_weights[0:2])
 
 # Naming our first hidden layer nodes h1
 # Note to future team : Fast Eric made us do this
-h1 = []
-for i in range(0, hidden_layer_size):
-    weightedSum = 0
-    for j in range(0, sentence_max):
-        weightedSum += (hidden_weights[i][j]*sentence_input[0][j])
-    weightedSum += hidden_biases[i]
-    h1.append(weightedSum)
-
-# TODO: Add activation function; add output layer; then training.  Possibly add another hidden layer (h2!)
+h1 = evaluate_layer(hidden_weights, hidden_biases, sentence_input[0])
 
 print(h1[0:2])
+
+output_layer_size = 5
+output_weights, output_biases = generate_layer(hidden_layer_size, output_layer_size)
+
+print("The output weights are ",  output_weights[0:2])
+
+y = evaluate_layer(output_weights, output_biases, h1)
+
+print("Output layer is ", y)
+
+# TODO: Add transfer function; then training.  Possibly add another hidden layer (h2!)
+
+
+
