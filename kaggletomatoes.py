@@ -105,6 +105,15 @@ def cross_entropy(expected, actual):
         error_vector.append(expected[i] * math.log(actual[i]))
     return -sum(error_vector)
 
+def derivative_cross_entropy(expected, actual):
+    derivative = []
+    for i in range(0, len(expected)):
+        derivative.append(actual[i] - expected[i])
+    return derivative
+
+def derivative_softmax(layer):
+    # FIXME: Finish this!
+    return []
 
 hidden_layer_size = 800
 hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
