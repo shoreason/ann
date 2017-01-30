@@ -105,7 +105,7 @@ def cross_entropy(expected, actual):
         error_vector.append(expected[i] * math.log(actual[i]))
     return -sum(error_vector)
 
-def derivative_cross_entropy(expected, actual):
+def derivative_cross_entropy_with_softmax(expected, actual):
     derivative = []
     for i in range(0, len(expected)):
         derivative.append(actual[i] - expected[i])
@@ -114,6 +114,30 @@ def derivative_cross_entropy(expected, actual):
 def derivative_softmax(layer):
     # FIXME: Finish this!
     return []
+
+# Layers is an array of (inputs, weights, biases) for each layer.
+def backprop(expected_outputs, actual_outputs, layers):
+    # Output layer
+    error = derivative_cross_entropy_with_softmax(expected_outputs, actual_outputs)
+    bias_derivatives = error
+    weight_derivatives = []
+    for neuron_error in error:
+        weight_derivative_row = []
+        for input in layers[-1].inputs:
+            weight_derivative_row.append(input * neuron_error)
+        weight_derivatives.append(weight_derivative_row)
+
+    # Here, could apply derivatives to biases and weights in the output layer, multiplied by learning rate
+    for i in range(layers[-1].biases):
+        layers[-1].biases -= learning_rate * bias_derivatives[i]
+
+    for i in range(layers[1].weights):
+        weight_row = layers[1].weights[i]
+        for j in range(weight_row):
+            layers[-1].weights[i][j] -= learning_rate * weight_derivatives[i][j]
+
+    # FIXME: Propagate to the other layers
+
 
 hidden_layer_size = 800
 hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
