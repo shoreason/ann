@@ -116,17 +116,16 @@ def derivative_cross_entropy_with_softmax(expected, actual):
 
 
 class Layer:
-    def __init__(self, inputs, weights, biases, activation_derivative):
-        self.inputs = inputs
+    # this changed to take an input batch
+    def __init__(self, input_batch, weights, biases, activation_derivative):
+        self.input_batch = input_batch
         self.weights = weights
         self.biases = biases
         self.activation_derivative = activation_derivative
 
-
-# Layers is a tuple of (inputs, weights, biases) for each layer.
-# layers[0] is the output layer, working backwards from there.
-def backprop(expected_outputs, actual_outputs, layers, learning_rate = 0.001):
-    # Compute partial derivatives for the biases and weights on the output layer.
+# TODO: this is a refactor, pulling out the bias and weight calcs to do each sentence
+# we will then sum the matrices at the end and divide by num sentences in batch
+def bias_weight_layer_derivatives(layers):
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = []
@@ -135,16 +134,6 @@ def backprop(expected_outputs, actual_outputs, layers, learning_rate = 0.001):
         for input in layers[0].inputs:
             weight_derivative_row.append(input * neuron_error)
         weight_derivatives.append(weight_derivative_row)
-
-    # Apply derivatives to biases and weights in the output layer, multiplied by learning rate
-    # The learning rate is the fraction by which we are moving down the gradient of the cost function.
-    for i in range(0, len(layers[0].biases)):
-        layers[0].biases[i] -= learning_rate * bias_derivatives[i]
-
-    for i in range(0, len(layers[0].weights)):
-        weight_row = layers[0].weights[i]
-        for j in range(0, len(weight_row)):
-            layers[0].weights[i][j] -= learning_rate * weight_derivatives[i][j]
 
     # I need a Numpy
     l = 1
@@ -181,6 +170,32 @@ def backprop(expected_outputs, actual_outputs, layers, learning_rate = 0.001):
             for input in layer.inputs:
                 weight_derivative_row.append(input * neuron_error)
             weight_derivatives.append(weight_derivative_row)
+        # TODO: this function should return a set of bias and weight derivatives for each layer
+
+
+# Layers is a tuple of (inputs, weights, biases) for each layer.
+# layers[0] is the output layer, working backwards from there.
+def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.001):
+    # Compute partial derivatives for the biases and weights on the output layer.
+    # TODO: figure out how to iterate and what args to pass to the function below
+    for something in somethtings:
+        bwd = bias_weight_layer_derivatives()
+        # sum this in an accumulator
+
+    # TODO: this layer biases calc can be done after the derivatives
+    # Should be able to loop over all layers and apply derivatives, thus combining the
+    # loops below.
+
+    # Apply derivatives to biases and weights in the output layer, multiplied by learning rate
+    # The learning rate is the fraction by which we are moving down the gradient of the cost function.
+    for i in range(0, len(layers[0].biases)):
+        layers[0].biases[i] -= learning_rate * bias_derivatives[i]
+
+    for i in range(0, len(layers[0].weights)):
+        weight_row = layers[0].weights[i]
+        for j in range(0, len(weight_row)):
+            layers[0].weights[i][j] -= learning_rate * weight_derivatives[i][j]
+
 
         # Apply derivatives to biases and weights in the output layer, multiplied by learning rate
         # The learning rate is the fraction by which we are moving down the gradient of the cost function.
@@ -207,21 +222,37 @@ hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
 output_layer_size = 5
 output_weights, output_biases = generate_layer(hidden_layer_size, output_layer_size)
 
-def train_all_sentences(max_iterations):
-    for sentence_index in range(0, min(max_iterations, len(sentence_input))):
-        # Naming our first hidden layer nodes h1
-        # Note to future team : Fast Eric made us do this
-        h1 = evaluate_layer(hidden_weights, hidden_biases, sentence_input[sentence_index], activation_function)
+def train_all_sentences(batch_size = 50, num_epochs = 3):
+    training_data = zip(sentence_input, training_sentiment)
+    for epoch_num in range(0, num_epochs):
+        random.shuffle(training_data)
+        for batch_num in range(0, math.ceil(len(training_data) / batch_size)):
+            batch_start_index = batch_num * batch_size
+            batch_end_index = min((batch_num + 1) * batch_size, len(training_data))
+            batch = training_data[batch_start_index:batch_end_index]
+            
+            [sentence_batch, sentiment_batch] = zip(*(batch))
 
-        y = evaluate_layer(output_weights, output_biases, h1, transfer_function)
+            h1_batch = []
+            y_batch = []
 
-        hidden_layer = Layer(inputs = sentence_input[sentence_index], weights = hidden_weights, biases = hidden_biases, activation_derivative = activation_derivative)
-        output_layer = Layer(inputs = h1, weights = output_weights, biases = output_biases, activation_derivative = derivative_cross_entropy_with_softmax)
-        layers = [output_layer, hidden_layer]
-        backprop(training_sentiment[sentence_index], y, layers)
+            for sentence in sentence_batch:
+                # Naming our first hidden layer nodes h1
+                # Note to future team : Fast Eric made us do this
+                h1 = evaluate_layer(hidden_weights, hidden_biases, sentence, activation_function)
+                h1_batch.append(h1)
+                y = evaluate_layer(output_weights, output_biases, h1, transfer_function)
+                y_batch.append(y)
 
-        if sentence_index % 100 == 0:
-            print("Sentence #", sentence_index + 1, ", cost = ", cross_entropy(training_sentiment[sentence_index], y))
+            hidden_layer = Layer(input_batch = sentence_batch, weights = hidden_weights, biases = hidden_biases, activation_derivative = activation_derivative)
+            output_layer = Layer(input_batch = h1_batch, weights = output_weights, biases = output_biases, activation_derivative = derivative_cross_entropy_with_softmax)
+
+            layers = [output_layer, hidden_layer]
+        
+            backprop(sentiment_batch, y_batch, layers)
+
+        # if sentence_index % 100 == 0:
+        #     print("Sentence #", sentence_index + 1, ", cost = ", cross_entropy(training_sentiment[sentence_index], y))
 
 
 def train_one_sentence(iterations):
