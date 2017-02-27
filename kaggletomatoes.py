@@ -123,17 +123,18 @@ class Layer:
         self.biases = biases
         self.activation_derivative = activation_derivative
 
-# TODO: this is a refactor, pulling out the bias and weight calcs to do each sentence
-# we will then sum the matrices at the end and divide by num sentences in batch
-def bias_weight_layer_derivatives(layers):
+# Returns an array of (bias_derivatives, weight_derivatives) tuples, one per layer in reverse order.
+def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_index, layers):
+    derivatives_per_layer = []
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = []
     for neuron_error in error:
         weight_derivative_row = []
-        for input in layers[0].inputs:
+        for input in layers[0].input_batch[sentence_index]:
             weight_derivative_row.append(input * neuron_error)
         weight_derivatives.append(weight_derivative_row)
+    derivatives_per_layer.append((bias_derivatives, weight_derivatives))
 
     # I need a Numpy
     l = 1
@@ -152,8 +153,8 @@ def bias_weight_layer_derivatives(layers):
         wx_b = []
         for i in range(0, len(layer.biases)):
             weightedSum = 0
-            for j in range(0, len(layer.inputs)):
-                weightedSum += (layer.weights[i][j]*layer.inputs[j])
+            for j in range(0, len(layer.input_batch[sentence_index])):
+                weightedSum += (layer.weights[i][j]*layer.input_batch[sentence_index][j])
             weightedSum += layer.biases[i]
             wx_b.append(weightedSum)
 
@@ -167,10 +168,15 @@ def bias_weight_layer_derivatives(layers):
         weight_derivatives = []
         for neuron_error in error:
             weight_derivative_row = []
-            for input in layer.inputs:
+            for input in layer.input_batch[sentence_index]:
                 weight_derivative_row.append(input * neuron_error)
             weight_derivatives.append(weight_derivative_row)
-        # TODO: this function should return a set of bias and weight derivatives for each layer
+
+        derivatives_per_layer.append((bias_derivatives, weight_derivatives))
+
+        l += 1
+
+    return derivatives_per_layer
 
 
 # Layers is a tuple of (inputs, weights, biases) for each layer.
@@ -178,43 +184,61 @@ def bias_weight_layer_derivatives(layers):
 def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.001):
     # Compute partial derivatives for the biases and weights on the output layer.
     # TODO: figure out how to iterate and what args to pass to the function below
-    for something in somethtings:
-        bwd = bias_weight_layer_derivatives()
+    total_bias_derivatives = []
+    total_weight_derivatives = []
+    for sentence_index in range(0, len(expected_output_batch)):
+        bwd = bias_weight_layer_derivatives(expected_output_batch[sentence_index], actual_output_batch[sentence_index], sentence_index, layers)
         # sum this in an accumulator
+        for layer_index, layer in enumerate(bwd):
+            bias_derivatives, weight_derivatives = layer
+            #if (sentence_index = 0):
+            #    total_bias_derivatives.append(bias_derivatives)
+            if sentence_index == 0:
+                total_bias_derivatives.append(bias_derivatives)
+                total_weight_derivatives.append(weight_derivatives)
+            else:
+                total_layer_bias_derivatives = total_bias_derivatives[layer_index]
+                for i in range(0, len(bias_derivatives)):
+                    total_layer_bias_derivatives[i] += bias_derivatives[i]
 
-    # TODO: this layer biases calc can be done after the derivatives
-    # Should be able to loop over all layers and apply derivatives, thus combining the
-    # loops below.
+                total_layer_weight_derivatives = total_weight_derivatives[layer_index]
+                for i in range(0, len(weight_derivatives)):
+                    for j in range(0, len(weight_derivatives[i])):
+                        total_layer_weight_derivatives[i][j] += weight_derivatives[i][j]
 
-    # Apply derivatives to biases and weights in the output layer, multiplied by learning rate
+    batch_size = len(expected_output_batch)
+
+    for total_layer_bias_derivatives in total_bias_derivatives:
+        for i in range(0, len(total_layer_bias_derivatives)):
+            total_layer_bias_derivatives[i] /= batch_size
+    average_bias_derivatives = total_bias_derivatives
+
+    for total_layer_weight_derivatives in total_weight_derivatives:
+        for i in range(0, len(total_layer_weight_derivatives)):
+            for j in range(0, len(total_layer_weight_derivatives[i])):
+                total_layer_weight_derivatives[i][j] /= batch_size
+    average_weight_derivatives = total_weight_derivatives
+
+    # Apply derivatives to biases and weights in each layer, multiplied by learning rate
     # The learning rate is the fraction by which we are moving down the gradient of the cost function.
-    for i in range(0, len(layers[0].biases)):
-        layers[0].biases[i] -= learning_rate * bias_derivatives[i]
 
-    for i in range(0, len(layers[0].weights)):
-        weight_row = layers[0].weights[i]
-        for j in range(0, len(weight_row)):
-            layers[0].weights[i][j] -= learning_rate * weight_derivatives[i][j]
+    for layer_index, layer in enumerate(layers):
+        bias_derivatives = average_bias_derivatives[layer_index]
+        weight_derivatives = average_weight_derivatives[layer_index]
 
-
-        # Apply derivatives to biases and weights in the output layer, multiplied by learning rate
-        # The learning rate is the fraction by which we are moving down the gradient of the cost function.
         for i in range(0, len(layer.biases)):
             layer.biases[i] -= learning_rate * bias_derivatives[i]
 
-        # This is bad because we're altering weights that are about to be used in the backprop calculation
-        # for the next layer.  But who cares for now, it's Friday! :)
         for i in range(0, len(layer.weights)):
             weight_row = layer.weights[i]
             for j in range(0, len(weight_row)):
                 layer.weights[i][j] -= learning_rate * weight_derivatives[i][j]
 
-        l += 1
-
 
 # Define the network.
 
-hidden_layer_size = 800
+# hidden_layer_size = 800
+hidden_layer_size = 100
 hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
 
 # print(hidden_weights[0:2])
@@ -226,7 +250,7 @@ def train_all_sentences(batch_size = 50, num_epochs = 3):
     training_data = zip(sentence_input, training_sentiment)
     for epoch_num in range(0, num_epochs):
         random.shuffle(training_data)
-        for batch_num in range(0, math.ceil(len(training_data) / batch_size)):
+        for batch_num in range(0, int(math.ceil(len(training_data) / batch_size))):
             batch_start_index = batch_num * batch_size
             batch_end_index = min((batch_num + 1) * batch_size, len(training_data))
             batch = training_data[batch_start_index:batch_end_index]
@@ -251,6 +275,8 @@ def train_all_sentences(batch_size = 50, num_epochs = 3):
         
             backprop(sentiment_batch, y_batch, layers)
 
+            print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y))
+
         # if sentence_index % 100 == 0:
         #     print("Sentence #", sentence_index + 1, ", cost = ", cross_entropy(training_sentiment[sentence_index], y))
 
@@ -272,7 +298,7 @@ def train_one_sentence(iterations):
             print("Iteration #", i, ", cost = ", cross_entropy(training_sentiment[0], y))
 
 
-train_one_sentence(1000)
+train_all_sentences()
 
 
 # Next steps: Mini-batch, then add another hidden layer (h2), then add TensorFlow, then add word2vec.
