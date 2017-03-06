@@ -2,6 +2,7 @@ import pandas as pd
 from collections import Counter
 import random
 import math
+import numpy as np
 
 PAD_INDEX = 0
 UNKNOWN_INDEX = 1
@@ -77,26 +78,27 @@ print("sentence_input = ", sentence_input[0:2], "; training_sentiment = ", train
 # Build the neural network itself.
 
 def generate_layer(input_size, output_size):
-    weights = []
-    biases = []
-    for i in range(0,output_size):
-        weights_row = []
-        biases.append(random.random() * 2 - 1)
-        for j in range(0, input_size):
-            weights_row.append(random.random() * 2 - 1)
-        weights.append(weights_row)
+    weights = np.random.random([output_size, input_size])
+    biases = np.random.random([output_size])
+    # biases = []
+    # for i in range(0,output_size):
+    #     weights_row = []
+    #     biases.append(random.random() * 2 - 1)
+    #     for j in range(0, input_size):
+    #         weights_row.append(random.random() * 2 - 1)
+    #     weights.append(weights_row)
 
     return weights, biases
 
 def evaluate_layer(weights, biases, inputs, apply_function):
-    layer = []
-    for i in range(0, len(biases)):
-        weightedSum = 0
-        for j in range(0, len(inputs)):
-            weightedSum += (weights[i][j]*inputs[j])
-        weightedSum += biases[i]
-        layer.append(weightedSum)
-    return apply_function(layer)
+    return apply_function(np.matmul(weights, inputs) + biases)
+    # for i in range(0, len(biases)):
+    #     weightedSum = 0
+    #     for j in range(0, len(inputs)):
+    #         weightedSum += (weights[i][j]*inputs[j])
+    #     weightedSum += biases[i]
+    #     layer.append(weightedSum)
+    # return apply_function(layer)
 
 def activation_function(layer):
     return map(math.tanh,layer)
@@ -136,35 +138,35 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
     derivatives_per_layer = []
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
-    weight_derivatives = []
-    for neuron_error in error:
-        weight_derivative_row = []
-        for input in layers[0].input_batch[sentence_index]:
-            weight_derivative_row.append(input * neuron_error)
-        weight_derivatives.append(weight_derivative_row)
+    weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
+    # for neuron_error in error:
+    #     weight_derivative_row = []
+    #     for input in layers[0].input_batch[sentence_index]:
+    #         weight_derivative_row.append(input * neuron_error)
+    #     weight_derivatives.append(weight_derivative_row)
     derivatives_per_layer.append((bias_derivatives, weight_derivatives))
 
-    # I need a Numpy
     l = 1
     while l < len(layers):
         previous_error = error  # really the next layer in a feed forward sense
         previous_layer = layers[l - 1]
         layer = layers[l]
-        error = []
-        for i in range(0, len(layer.weights)):
-            neuron_error = 0
-            for j in range(0, len(previous_layer.weights)):
-                neuron_error += previous_layer.weights[j][i] * previous_error[j]
-            error.append(neuron_error)
+        error = np.matmul(previous_layer.weights, previous_error)
+        # for i in range(0, len(layer.weights)):
+        #     neuron_error = 0
+        #     for j in range(0, len(previous_layer.weights)):
+        #         neuron_error += previous_layer.weights[j][i] * previous_error[j]
+        #     error.append(neuron_error)
 
         # Compute Wx + b (z in the neural networks book)
-        wx_b = []
-        for i in range(0, len(layer.biases)):
-            weightedSum = 0
-            for j in range(0, len(layer.input_batch[sentence_index])):
-                weightedSum += (layer.weights[i][j]*layer.input_batch[sentence_index][j])
-            weightedSum += layer.biases[i]
-            wx_b.append(weightedSum)
+        wx_b = np.matmul(layer.weights, layer.input_batch[sentence_index]) + layer.biases
+        # wx_b = []
+        # for i in range(0, len(layer.biases)):
+        #     weightedSum = 0
+        #     for j in range(0, len(layer.input_batch[sentence_index])):
+        #         weightedSum += (layer.weights[i][j]*layer.input_batch[sentence_index][j])
+        #     weightedSum += layer.biases[i]
+        #     wx_b.append(weightedSum)
 
         derivative = layer.activation_derivative(wx_b)
         for i in range(0, len(error)):
