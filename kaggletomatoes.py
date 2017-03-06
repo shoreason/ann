@@ -27,7 +27,7 @@ for i in range(0, num_phrases):
         last_sentence_id = sentence_id
         training_sentiment.append(hot_vectorize(int(train["Sentiment"][i])))
 
-
+print("Number of sentences: ", len(sentences))
 print(sentences[0:1])
 
 print("Hot vectorized Sentiment is: ", training_sentiment[0:2])
@@ -63,6 +63,14 @@ for sentence in sentences:
     numeric_words = list(map(lookup_word, sentence))
     numeric_words += [PAD_INDEX] * (sentence_max - len(numeric_words))
     sentence_input.append(numeric_words)
+
+# Hijack the actual sentences and put a linear model in place instead, for testing.
+
+sentence_max = 1
+sentence_input = [[x] for x in range(0, 10000)]
+training_sentiment = [[x / 10000.0, (10000.0 - x) / 10000.0] for x in range(0, 10000)]
+
+print("sentence_input = ", sentence_input[0:2], "; training_sentiment = ", training_sentiment[0:2])
 
 # print(sentence_input[0:2])
 
@@ -238,19 +246,22 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
 # Define the network.
 
 # hidden_layer_size = 800
-hidden_layer_size = 100
+hidden_layer_size = 2
 hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
 
 # print(hidden_weights[0:2])
 
-output_layer_size = 5
+# output_layer_size = 5
+output_layer_size = 2
 output_weights, output_biases = generate_layer(hidden_layer_size, output_layer_size)
 
 def train_all_sentences(batch_size = 50, num_epochs = 3):
     training_data = zip(sentence_input, training_sentiment)
     for epoch_num in range(0, num_epochs):
         random.shuffle(training_data)
-        for batch_num in range(0, int(math.ceil(len(training_data) / batch_size))):
+        num_batches = int(math.ceil(len(training_data) / batch_size))
+        print("len(training_data) = ", len(training_data), "; batch_size = ", batch_size, "; num_batches = ", num_batches)
+        for batch_num in range(0, num_batches):
             batch_start_index = batch_num * batch_size
             batch_end_index = min((batch_num + 1) * batch_size, len(training_data))
             batch = training_data[batch_start_index:batch_end_index]
