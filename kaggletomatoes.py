@@ -80,25 +80,10 @@ print("sentence_input = ", sentence_input[0:2], "; training_sentiment = ", train
 def generate_layer(input_size, output_size):
     weights = np.random.random([output_size, input_size])
     biases = np.random.random([output_size])
-    # biases = []
-    # for i in range(0,output_size):
-    #     weights_row = []
-    #     biases.append(random.random() * 2 - 1)
-    #     for j in range(0, input_size):
-    #         weights_row.append(random.random() * 2 - 1)
-    #     weights.append(weights_row)
-
     return weights, biases
 
 def evaluate_layer(weights, biases, inputs, apply_function):
     return apply_function(np.matmul(weights, inputs) + biases)
-    # for i in range(0, len(biases)):
-    #     weightedSum = 0
-    #     for j in range(0, len(inputs)):
-    #         weightedSum += (weights[i][j]*inputs[j])
-    #     weightedSum += biases[i]
-    #     layer.append(weightedSum)
-    # return apply_function(layer)
 
 def activation_function(layer):
     return map(math.tanh,layer)
@@ -139,11 +124,6 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
-    # for neuron_error in error:
-    #     weight_derivative_row = []
-    #     for input in layers[0].input_batch[sentence_index]:
-    #         weight_derivative_row.append(input * neuron_error)
-    #     weight_derivatives.append(weight_derivative_row)
     derivatives_per_layer.append((bias_derivatives, weight_derivatives))
 
     l = 1
@@ -152,21 +132,9 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
         previous_layer = layers[l - 1]
         layer = layers[l]
         error = np.matmul(previous_layer.weights, previous_error)
-        # for i in range(0, len(layer.weights)):
-        #     neuron_error = 0
-        #     for j in range(0, len(previous_layer.weights)):
-        #         neuron_error += previous_layer.weights[j][i] * previous_error[j]
-        #     error.append(neuron_error)
 
         # Compute Wx + b (z in the neural networks book)
         wx_b = np.matmul(layer.weights, layer.input_batch[sentence_index]) + layer.biases
-        # wx_b = []
-        # for i in range(0, len(layer.biases)):
-        #     weightedSum = 0
-        #     for j in range(0, len(layer.input_batch[sentence_index])):
-        #         weightedSum += (layer.weights[i][j]*layer.input_batch[sentence_index][j])
-        #     weightedSum += layer.biases[i]
-        #     wx_b.append(weightedSum)
 
         derivative = layer.activation_derivative(wx_b)
         for i in range(0, len(error)):
@@ -176,13 +144,6 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
 
         bias_derivatives = error
         weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layer.input_batch[sentence_index]))
-        # weight_derivatives = []
-        # for neuron_error in error:
-        #     weight_derivative_row = []
-        #     for input in layer.input_batch[sentence_index]:
-        #         weight_derivative_row.append(input * neuron_error)
-        #     weight_derivatives.append(weight_derivative_row)
-
         derivatives_per_layer.append((bias_derivatives, weight_derivatives))
 
         l += 1
@@ -205,38 +166,17 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
         # sum this in an accumulator
         for layer_index, layer in enumerate(bwd):
             bias_derivatives, weight_derivatives = layer
-            #if (sentence_index = 0):
-            #    total_bias_derivatives.append(bias_derivatives)
             if sentence_index == 0:
                 total_bias_derivatives.append(bias_derivatives)
                 total_weight_derivatives.append(weight_derivatives)
             else:
                 total_bias_derivatives[layer_index] = np.add(total_bias_derivatives[layer_index], bias_derivatives)
-                # for i in range(0, len(bias_derivatives)):
-                #     total_layer_bias_derivatives[i] += bias_derivatives[i]
-
                 total_weight_derivatives[layer_index] = np.add(total_weight_derivatives[layer_index], weight_derivatives)
-                # total_layer_weight_derivatives = total_weight_derivatives[layer_index]
-                # for i in range(0, len(weight_derivatives)):
-                #     for j in range(0, len(weight_derivatives[i])):
-                #         total_layer_weight_derivatives[i][j] += weight_derivatives[i][j]
 
     batch_size = float(len(expected_output_batch))
 
     average_bias_derivatives = map(lambda bd: np.divide(bd, batch_size), total_bias_derivatives)
-    # for total_layer_bias_derivatives in total_bias_derivatives:
-    #     total_layer_bias_derivatives = np.divide(total_layer_bias_derivatives, batch_size)
-    #     for i in range(0, len(total_layer_bias_derivatives)):
-    #         total_layer_bias_derivatives[i] /= batch_size
-    # average_bias_derivatives = total_bias_derivatives
-
     average_weight_derivatives = map(lambda wd: np.divide(wd, batch_size), total_weight_derivatives)
-    # for total_layer_weight_derivatives in total_weight_derivatives:
-    #     total_layer_weight_derivatives /= batch_size
-    #     for i in range(0, len(total_layer_weight_derivatives)):
-    #         for j in range(0, len(total_layer_weight_derivatives[i])):
-    #             total_layer_weight_derivatives[i][j] /= batch_size
-    # average_weight_derivatives = total_weight_derivatives
 
     # Apply derivatives to biases and weights in each layer, multiplied by learning rate
     # The learning rate is the fraction by which we are moving down the gradient of the cost function.
@@ -246,14 +186,7 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
         weight_derivatives = average_weight_derivatives[layer_index]
 
         layer.biases -= bias_derivatives * learning_rate
-        # for i in range(0, len(layer.biases)):
-        #     layer.biases[i] -= learning_rate * bias_derivatives[i]
-
         layer.weights -= weight_derivatives * learning_rate
-        # for i in range(0, len(layer.weights)):
-        #     weight_row = layer.weights[i]
-        #     for j in range(0, len(weight_row)):
-        #         layer.weights[i][j] -= learning_rate * weight_derivatives[i][j]
 
 
 # Define the network.
@@ -301,28 +234,8 @@ def train_all_sentences(batch_size = 50, num_epochs = 3):
 
             print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y))
 
-        # if sentence_index % 100 == 0:
-        #     print("Sentence #", sentence_index + 1, ", cost = ", cross_entropy(training_sentiment[sentence_index], y))
-
-
-def train_one_sentence(iterations):
-    for i in range(0, iterations):
-        # Naming our first hidden layer nodes h1
-        # Note to future team : Fast Eric made us do this
-        h1 = evaluate_layer(hidden_weights, hidden_biases, sentence_input[0], activation_function)
-
-        y = evaluate_layer(output_weights, output_biases, h1, transfer_function)
-
-        hidden_layer = Layer(inputs = sentence_input[0], weights = hidden_weights, biases = hidden_biases, activation_derivative = activation_derivative)
-        output_layer = Layer(inputs = h1, weights = output_weights, biases = output_biases, activation_derivative = derivative_cross_entropy_with_softmax)
-        layers = [output_layer, hidden_layer]
-        backprop(training_sentiment[0], y, layers)
-
-        if i % 100 == 0:
-            print("Iteration #", i, ", cost = ", cross_entropy(training_sentiment[0], y))
-
 
 train_all_sentences()
 
 
-# Next steps: Mini-batch, then add another hidden layer (h2), then add TensorFlow, then add word2vec.
+# Next steps: Get this to actually work, then add another hidden layer (h2), then add TensorFlow, then add word2vec.
