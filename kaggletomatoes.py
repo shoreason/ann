@@ -121,6 +121,8 @@ class Layer:
 # Returns an array of (bias_derivatives, weight_derivatives) tuples, one per layer in reverse order.
 def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_index, layers):
     derivatives_per_layer = []
+
+    # Compute the initial values of the error, the bias derivatives and weight derivatives for the output layer.
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
@@ -131,7 +133,7 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
         previous_error = error  # really the next layer in a feed forward sense
         previous_layer = layers[l - 1]
         layer = layers[l]
-        error = np.matmul(previous_layer.weights, previous_error)
+        error = np.matmul(previous_layer.weights.T, previous_error)
 
         # Compute Wx + b (z in the neural networks book)
         wx_b = np.matmul(layer.weights, layer.input_batch[sentence_index]) + layer.biases
@@ -192,7 +194,7 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
 # Define the network.
 
 # hidden_layer_size = 800
-hidden_layer_size = 2
+hidden_layer_size = 3
 hidden_weights, hidden_biases = generate_layer(sentence_max, hidden_layer_size)
 
 # print(hidden_weights[0:2])
