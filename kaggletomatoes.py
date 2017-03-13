@@ -175,12 +175,13 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
         # Don't judge, we'll clean this up later.  This is totally copied and pasted from the above.
 
         bias_derivatives = error
-        weight_derivatives = []
-        for neuron_error in error:
-            weight_derivative_row = []
-            for input in layer.input_batch[sentence_index]:
-                weight_derivative_row.append(input * neuron_error)
-            weight_derivatives.append(weight_derivative_row)
+        weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layer.input_batch[sentence_index]))
+        # weight_derivatives = []
+        # for neuron_error in error:
+        #     weight_derivative_row = []
+        #     for input in layer.input_batch[sentence_index]:
+        #         weight_derivative_row.append(input * neuron_error)
+        #     weight_derivatives.append(weight_derivative_row)
 
         derivatives_per_layer.append((bias_derivatives, weight_derivatives))
 
@@ -194,7 +195,10 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
 def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.001):
     # Compute partial derivatives for the biases and weights on the output layer.
     # TODO: figure out how to iterate and what args to pass to the function below
+
+    # total_bias_derivatives is an array of bias derivatives, one per layer
     total_bias_derivatives = []
+    # total_weight_derivatives is an array of weight derivatives, one per layer
     total_weight_derivatives = []
     for sentence_index in range(0, len(expected_output_batch)):
         bwd = bias_weight_layer_derivatives(expected_output_batch[sentence_index], actual_output_batch[sentence_index], sentence_index, layers)
@@ -207,27 +211,32 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
                 total_bias_derivatives.append(bias_derivatives)
                 total_weight_derivatives.append(weight_derivatives)
             else:
-                total_layer_bias_derivatives = total_bias_derivatives[layer_index]
-                for i in range(0, len(bias_derivatives)):
-                    total_layer_bias_derivatives[i] += bias_derivatives[i]
+                total_bias_derivatives[layer_index] = np.add(total_bias_derivatives[layer_index], bias_derivatives)
+                # for i in range(0, len(bias_derivatives)):
+                #     total_layer_bias_derivatives[i] += bias_derivatives[i]
 
-                total_layer_weight_derivatives = total_weight_derivatives[layer_index]
-                for i in range(0, len(weight_derivatives)):
-                    for j in range(0, len(weight_derivatives[i])):
-                        total_layer_weight_derivatives[i][j] += weight_derivatives[i][j]
+                total_weight_derivatives[layer_index] = np.add(total_weight_derivatives[layer_index], weight_derivatives)
+                # total_layer_weight_derivatives = total_weight_derivatives[layer_index]
+                # for i in range(0, len(weight_derivatives)):
+                #     for j in range(0, len(weight_derivatives[i])):
+                #         total_layer_weight_derivatives[i][j] += weight_derivatives[i][j]
 
-    batch_size = len(expected_output_batch)
+    batch_size = float(len(expected_output_batch))
 
-    for total_layer_bias_derivatives in total_bias_derivatives:
-        for i in range(0, len(total_layer_bias_derivatives)):
-            total_layer_bias_derivatives[i] /= batch_size
-    average_bias_derivatives = total_bias_derivatives
+    average_bias_derivatives = map(lambda bd: np.divide(bd, batch_size), total_bias_derivatives)
+    # for total_layer_bias_derivatives in total_bias_derivatives:
+    #     total_layer_bias_derivatives = np.divide(total_layer_bias_derivatives, batch_size)
+    #     for i in range(0, len(total_layer_bias_derivatives)):
+    #         total_layer_bias_derivatives[i] /= batch_size
+    # average_bias_derivatives = total_bias_derivatives
 
-    for total_layer_weight_derivatives in total_weight_derivatives:
-        for i in range(0, len(total_layer_weight_derivatives)):
-            for j in range(0, len(total_layer_weight_derivatives[i])):
-                total_layer_weight_derivatives[i][j] /= batch_size
-    average_weight_derivatives = total_weight_derivatives
+    average_weight_derivatives = map(lambda wd: np.divide(wd, batch_size), total_weight_derivatives)
+    # for total_layer_weight_derivatives in total_weight_derivatives:
+    #     total_layer_weight_derivatives /= batch_size
+    #     for i in range(0, len(total_layer_weight_derivatives)):
+    #         for j in range(0, len(total_layer_weight_derivatives[i])):
+    #             total_layer_weight_derivatives[i][j] /= batch_size
+    # average_weight_derivatives = total_weight_derivatives
 
     # Apply derivatives to biases and weights in each layer, multiplied by learning rate
     # The learning rate is the fraction by which we are moving down the gradient of the cost function.
@@ -236,13 +245,15 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
         bias_derivatives = average_bias_derivatives[layer_index]
         weight_derivatives = average_weight_derivatives[layer_index]
 
-        for i in range(0, len(layer.biases)):
-            layer.biases[i] -= learning_rate * bias_derivatives[i]
+        layer.biases -= bias_derivatives * learning_rate
+        # for i in range(0, len(layer.biases)):
+        #     layer.biases[i] -= learning_rate * bias_derivatives[i]
 
-        for i in range(0, len(layer.weights)):
-            weight_row = layer.weights[i]
-            for j in range(0, len(weight_row)):
-                layer.weights[i][j] -= learning_rate * weight_derivatives[i][j]
+        layer.weights -= weight_derivatives * learning_rate
+        # for i in range(0, len(layer.weights)):
+        #     weight_row = layer.weights[i]
+        #     for j in range(0, len(weight_row)):
+        #         layer.weights[i][j] -= learning_rate * weight_derivatives[i][j]
 
 
 # Define the network.
