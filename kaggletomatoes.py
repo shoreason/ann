@@ -151,6 +151,9 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
 
     # Compute the initial values of the error, the bias derivatives and weight derivatives for the output layer.
     #TODO: does this need to have a division step, wx_b / zs like in the book?
+    #TODO: Not sure what the above todo means
+    #TODO: Fola and Yan need to read The Hitchhiker's Guide to the Galaxy
+    #TODO: Try setting our activation and transfer functions to identity, so that derivative = 1
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
