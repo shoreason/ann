@@ -65,11 +65,11 @@ for sentence in sentences:
     numeric_words += [PAD_INDEX] * (sentence_max - len(numeric_words))
     sentence_input.append(numeric_words)
 
-# Hijack the actual sentences and put a linear model in place instead, for testing.
+# Hijack the actual sentences and put a odd/even model in place instead, for testing.
 
 sentence_max = 1
 sentence_input = [[x] for x in range(0, 10000)]
-training_sentiment = [[x / 10000.0, (10000.0 - x) / 10000.0] for x in range(0, 10000)]
+training_sentiment = [[x % 2, 1 - (x % 2)] for x in range(0, 10000)]
 
 print("sentence_input = ", sentence_input[0:2], "; training_sentiment = ", training_sentiment[0:2])
 
@@ -155,7 +155,7 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
     bias_derivatives = error
     weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
     layer_derivatives.append((bias_derivatives, weight_derivatives))
-
+ 
     l = 1
     while l < len(layers):
         previous_error = error  # really the next layer in a feed forward sense
@@ -184,7 +184,7 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
 
 # Layers is a tuple of (inputs, weights, biases) for each layer.
 # layers[0] is the output layer, working backwards from there.
-def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.1):
+def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.01):
     # Compute partial derivatives for the biases and weights on the output layer.
     # TODO: figure out how to iterate and what args to pass to the function below
 
@@ -234,7 +234,7 @@ output_weights, output_biases = generate_layer(hidden_layer_size, output_layer_s
 
 
 
-def train_all_sentences(batch_size = 50, num_epochs = 3):
+def train_all_sentences(batch_size = 50, num_epochs = 10):
     training_data = zip(sentence_input, training_sentiment)
     for epoch_num in range(0, num_epochs):
         random.shuffle(training_data)
@@ -265,7 +265,7 @@ def train_all_sentences(batch_size = 50, num_epochs = 3):
         
             backprop(sentiment_batch, y_batch, layers)
 
-            print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y), ", another cost = ", -sum(derivative_cross_entropy_with_softmax(training_sentiment[0], y)) )
+            print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y))
 
 
 train_all_sentences()
