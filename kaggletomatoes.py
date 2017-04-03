@@ -150,6 +150,7 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
     layer_derivatives = []
 
     # Compute the initial values of the error, the bias derivatives and weight derivatives for the output layer.
+    #TODO: does this need to have a division step, wx_b / zs like in the book?
     error = layers[0].activation_derivative(expected_outputs, actual_outputs)
     bias_derivatives = error
     weight_derivatives = np.matmul(np.atleast_2d(error).T, np.atleast_2d(layers[0].input_batch[sentence_index]))
@@ -177,13 +178,13 @@ def bias_weight_layer_derivatives(expected_outputs, actual_outputs, sentence_ind
 
         l += 1
 
-    print(layer_derivatives)
+    # print(layer_derivatives)
     return layer_derivatives
 
 
 # Layers is a tuple of (inputs, weights, biases) for each layer.
 # layers[0] is the output layer, working backwards from there.
-def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.001):
+def backprop(expected_output_batch, actual_output_batch, layers, learning_rate = 0.1):
     # Compute partial derivatives for the biases and weights on the output layer.
     # TODO: figure out how to iterate and what args to pass to the function below
 
@@ -215,8 +216,8 @@ def backprop(expected_output_batch, actual_output_batch, layers, learning_rate =
         bias_derivatives = average_bias_derivatives[layer_index]
         weight_derivatives = average_weight_derivatives[layer_index]
 
-        layer.biases -= bias_derivatives * learning_rate
-        layer.weights -= weight_derivatives * learning_rate
+        layer.biases -= (bias_derivatives * learning_rate)
+        layer.weights -= (weight_derivatives * learning_rate)
 
 
 # Define the network.
@@ -264,7 +265,7 @@ def train_all_sentences(batch_size = 50, num_epochs = 3):
         
             backprop(sentiment_batch, y_batch, layers)
 
-            print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y))
+            print("Epoch #", epoch_num, ", batch #", batch_num, ", cost = ", cross_entropy(training_sentiment[0], y), ", another cost = ", -sum(derivative_cross_entropy_with_softmax(training_sentiment[0], y)) )
 
 
 train_all_sentences()
