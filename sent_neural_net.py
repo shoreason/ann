@@ -10,8 +10,8 @@ UNKNOWN_INDEX = 1
 hidden_layer_size = 800
 learning_rate = 0.001
 iteration_count = 3000
-batch_size = 1
-num_epochs = 10
+batch_size = 50
+num_epochs = 1
 
 
 train = pd.read_csv("data/train.tsv", header=0, delimiter="\t", quoting=3)
@@ -54,8 +54,10 @@ print(counter.most_common(10))
 
 i = 2
 lookup_table = {}
+index_to_word_lookup_table = {PAD_INDEX: "<pad>", UNKNOWN_INDEX: "<unknown>"}
 for word, _ in counter.most_common(18000):
     lookup_table[word] = i
+    index_to_word_lookup_table[i] = word
     i += 1
 
 print(lookup_table["the"])
@@ -73,7 +75,8 @@ for sentence in sentences:
     numeric_words += [PAD_INDEX] * (sentence_max - len(numeric_words))
     sentence_input.append(numeric_words)
 
-
+def lookup_index(index):
+    return index_to_word_lookup_table[index]
 
 # images going into input layer (input Layer images)
 x = tf.placeholder(tf.float32, [None, sentence_max])
@@ -81,11 +84,11 @@ W = tf.Variable(tf.truncated_normal([sentence_max, hidden_layer_size], stddev=0.
 b = tf.Variable(tf.truncated_normal([hidden_layer_size], stddev=0.1), name="b")
 
 # Hidden layer
-h1 = tf.nn.relu(tf.matmul(x, W) + b, name = "h1")
+h1 = tf.nn.sigmoid(tf.matmul(x, W) + b, name = "h1")
 W_h1 = tf.Variable(tf.truncated_normal([hidden_layer_size, hidden_layer_size], stddev=0.1), name="W_h1")
 b_h1 = tf.Variable(tf.truncated_normal([hidden_layer_size], stddev=0.1), name="b_h1")
 
-h2 = tf.nn.relu(tf.matmul(h1, W_h1) + b_h1, name = "h2")
+h2 = tf.nn.sigmoid(tf.matmul(h1, W_h1) + b_h1, name = "h2")
 W_h2 = tf.Variable(tf.truncated_normal([hidden_layer_size, 5], stddev=0.1), name="W_h2")
 b_h2 = tf.Variable(tf.truncated_normal([5], stddev=0.1), name="b_h2")
 
@@ -119,5 +122,10 @@ for epoch_num in range(0, num_epochs):
         batch = training_data[batch_start_index:batch_end_index]
 
         [sentence_batch, sentiment_batch] = zip(*(batch))
+        if batch_num == 0:
+            for sentence in sentence_batch[0:2]:
+                print(list(map(lookup_index, sentence)))
+            print(sentiment_batch[0:2])
+
         sess.run(train_step, feed_dict={x: sentence_batch, y_: sentiment_batch})
         print(sess.run(accuracy, feed_dict={x: sentence_batch, y_: sentiment_batch}))
