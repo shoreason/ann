@@ -3,6 +3,10 @@ import tensorflow as tf
 from collections import Counter
 import random
 import math
+import nltk
+from nltk.corpus import stopwords
+import re
+from gensim.models.word2vec import Word2Vec
 
 PAD_INDEX = 0
 UNKNOWN_INDEX = 1
@@ -11,13 +15,13 @@ hidden_layer_size = 800
 learning_rate = 0.001
 iteration_count = 3000
 batch_size = 50
-num_epochs = 1
+num_epochs = 10
 
 
 train = pd.read_csv("data/train.tsv", header=0, delimiter="\t", quoting=3)
 
 num_phrases = train["PhraseId"].size
-
+clean_train_phrases = []
 training_sentiment = []
 
 
@@ -27,12 +31,29 @@ def hot_vectorize(sentiment):
     one_hot_vector[sentiment-1]=1
     return one_hot_vector
 
+def phrase_to_wordlist(raw_phrase, remove_stopwords=False):
+    # make words lowercase
+    words = raw_phrase.lower().split()
+
+    # setup stopwords and remove stopwords
+    if remove_stopwords:
+        stops = set(stopwords.words("english"))
+        words = [w for w in words if not w in stops]
+
+    pattern = re.compile("^[\w]+$")
+    words = [w for w in words if pattern.match(w) ]
+    words = [w for w in words if len(w)>1 ]
+
+    return(" ".join(words))
+
+
 sentences = []
 last_sentence_id = 0
 for i in range(0, num_phrases):
     sentence_id = train["SentenceId"][i]
     if sentence_id != last_sentence_id:
-        sentences.append(train["Phrase"][i].split())
+        sentence = phrase_to_wordlist(train["Phrase"][i], remove_stopwords=True)
+        sentences.append(sentence.split())
         last_sentence_id = sentence_id
         training_sentiment.append(hot_vectorize(int(train["Sentiment"][i])))
 
@@ -49,18 +70,17 @@ for sentence in sentences:
         counter[word] += 1
 
 print("Sentence max :" + str(sentence_max))
-print(len(counter))
+print("Counter length: " + str(len(counter)))
 print(counter.most_common(10))
 
 i = 2
 lookup_table = {}
 index_to_word_lookup_table = {PAD_INDEX: "<pad>", UNKNOWN_INDEX: "<unknown>"}
 for word, _ in counter.most_common(18000):
+    # if counter[word] > 1:
     lookup_table[word] = i
     index_to_word_lookup_table[i] = word
     i += 1
-
-print(lookup_table["the"])
 
 def lookup_word(word):
     if word in lookup_table:
@@ -77,6 +97,7 @@ for sentence in sentences:
 
 def lookup_index(index):
     return index_to_word_lookup_table[index]
+
 
 # images going into input layer (input Layer images)
 x = tf.placeholder(tf.float32, [None, sentence_max])
@@ -110,8 +131,10 @@ sess = tf.InteractiveSession()
 
 tf.initialize_all_variables().run()
 
+training_sentences = sentence_input[:-100]
+testing_sentences = sentence_input[-100:]
 
-training_data = list(zip(sentence_input, training_sentiment))
+training_data = list(zip(training_sentences, training_sentiment[:-100]))
 for epoch_num in range(0, num_epochs):
     random.shuffle(training_data)
     num_batches = int(math.ceil(len(training_data) / batch_size))
@@ -129,3 +152,6 @@ for epoch_num in range(0, num_epochs):
 
         sess.run(train_step, feed_dict={x: sentence_batch, y_: sentiment_batch})
         print(sess.run(accuracy, feed_dict={x: sentence_batch, y_: sentiment_batch}))
+
+print("==========================================")
+print(sess.run(accuracy, feed_dict={x: testing_sentences, y_: training_sentiment[-100:]}))
