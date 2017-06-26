@@ -6,7 +6,14 @@ import math
 import nltk
 from nltk.corpus import stopwords
 import re
-from gensim.models.word2vec import Word2Vec
+import gensim
+
+# Load Google's pre-trained Word2Vec model.
+model = gensim.models.KeyedVectors.load_word2vec_format('../model/GoogleNews-vectors-negative300.bin', binary=True, limit=500000)
+
+#model = {"movie": list(range(0, 5)), "film": list(range(0, 5)), "series": list(range(1, 6))}
+
+#print(model.doesnt_match("man woman child kitchen".split()))
 
 PAD_INDEX = 0
 UNKNOWN_INDEX = 1
@@ -16,6 +23,7 @@ learning_rate = 0.001
 iteration_count = 3000
 batch_size = 50
 num_epochs = 10
+embedding_size = 300
 
 
 train = pd.read_csv("data/train.tsv", header=0, delimiter="\t", quoting=3)
@@ -52,7 +60,7 @@ last_sentence_id = 0
 for i in range(0, num_phrases):
     sentence_id = train["SentenceId"][i]
     if sentence_id != last_sentence_id:
-        sentence = phrase_to_wordlist(train["Phrase"][i], remove_stopwords=True)
+        sentence = phrase_to_wordlist(train["Phrase"][i], remove_stopwords=False)
         sentences.append(sentence.split())
         last_sentence_id = sentence_id
         training_sentiment.append(hot_vectorize(int(train["Sentiment"][i])))
@@ -89,23 +97,35 @@ def lookup_word(word):
         return UNKNOWN_INDEX
     # return lookup_table[word] if word in lookup_table else UNKNOWN_INDEX
 
+def lookup_word2vec(word):
+    if word in model:
+        return model[word]
+    else:
+        return [0] * embedding_size
+
 sentence_input = []
 for sentence in sentences:
-    numeric_words = list(map(lookup_word, sentence))
-    numeric_words += [PAD_INDEX] * (sentence_max - len(numeric_words))
+    # numeric_words = list(map(lookup_word, sentence))
+    # numeric_words += [PAD_INDEX] * (sentence_max - len(numeric_words))
+    numeric_words = list(map(lookup_word2vec, sentence))
+    numeric_words += [([0] * embedding_size) for _ in range(0, sentence_max - len(numeric_words))]
     sentence_input.append(numeric_words)
 
 def lookup_index(index):
     return index_to_word_lookup_table[index]
 
+print("First sentence: ", sentence_input[0])
 
 # images going into input layer (input Layer images)
-x = tf.placeholder(tf.float32, [None, sentence_max])
-W = tf.Variable(tf.truncated_normal([sentence_max, hidden_layer_size], stddev=0.1), name="W")
+# x = tf.placeholder(tf.float32, [None, sentence_max])
+# W = tf.Variable(tf.truncated_normal([sentence_max, hidden_layer_size], stddev=0.1), name="W")
+x = tf.placeholder(tf.float32, [None, sentence_max, embedding_size])
+x_reshaped = tf.reshape(x, [-1, sentence_max * embedding_size])
+W = tf.Variable(tf.truncated_normal([sentence_max * embedding_size, hidden_layer_size], stddev=0.1), name="W")
 b = tf.Variable(tf.truncated_normal([hidden_layer_size], stddev=0.1), name="b")
 
 # Hidden layer
-h1 = tf.nn.sigmoid(tf.matmul(x, W) + b, name = "h1")
+h1 = tf.nn.sigmoid(tf.matmul(x_reshaped, W) + b, name = "h1")
 W_h1 = tf.Variable(tf.truncated_normal([hidden_layer_size, hidden_layer_size], stddev=0.1), name="W_h1")
 b_h1 = tf.Variable(tf.truncated_normal([hidden_layer_size], stddev=0.1), name="b_h1")
 
@@ -145,10 +165,12 @@ for epoch_num in range(0, num_epochs):
         batch = training_data[batch_start_index:batch_end_index]
 
         [sentence_batch, sentiment_batch] = zip(*(batch))
-        if batch_num == 0:
-            for sentence in sentence_batch[0:2]:
-                print(list(map(lookup_index, sentence)))
-            print(sentiment_batch[0:2])
+        # if batch_num == 0:
+        #     for sentence in sentence_batch[0:2]:
+        #         print(list(map(lookup_index, sentence)))
+        #     print(sentiment_batch[0:2])
+
+        # print(sentence_batch[0:2])
 
         sess.run(train_step, feed_dict={x: sentence_batch, y_: sentiment_batch})
         print(sess.run(accuracy, feed_dict={x: sentence_batch, y_: sentiment_batch}))
